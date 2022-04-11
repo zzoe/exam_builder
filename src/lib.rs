@@ -1,6 +1,6 @@
 use docx_rs::{Run, RunFonts};
 
-pub mod label;
+pub mod title;
 pub mod question;
 
 fn song() -> Run {
