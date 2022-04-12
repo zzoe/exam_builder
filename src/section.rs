@@ -1,70 +1,136 @@
-use docx_rs::{BreakType, Docx, IndentLevel, NumberingId, Paragraph, Run, RunFonts};
+use docx_rs::{
+    AbstractNumbering, AlignmentType, BreakType, Docx, IndentLevel, Level, LevelJc, LevelText,
+    NumberFormat, Numbering, NumberingId, Paragraph, Run, RunFonts, SpecialIndentType, Start,
+};
 
+#[derive(Clone)]
 pub struct Section {
     pub title: String,
     pub questions: Vec<Question>,
+    pub numbering_id: usize,
 }
 
-pub trait AddSection {
-    fn add_section(self, section: &Section) -> Self;
+pub trait DocxExt {
+    fn add_question(self, section: &Section) -> Self;
+    fn add_answer(self, section: &Section) -> Self;
+    fn add_section(self, section: &Section, is_question: bool) -> Self;
+    fn add_exam_no(self, exam_no: u64) -> Self;
+    fn add_custom_numbering(self, numbering_id: usize) -> Self;
 }
 
-impl AddSection for Docx {
-    fn add_section(mut self, section: &Section) -> Self {
+impl DocxExt for Docx {
+    fn add_question(self, section: &Section) -> Self {
+        self.add_section(section, true)
+    }
+
+    fn add_answer(self, section: &Section) -> Self {
+        self.add_section(section, false)
+    }
+
+    fn add_section(mut self, section: &Section, is_question: bool) -> Self {
         let title = song().size(28).add_text(&section.title);
 
         let title_paragraph = Paragraph::new()
             .add_run(title)
             .size(28)
-            .numbering(NumberingId::new(2), IndentLevel::new(0));
+            .numbering(NumberingId::new(section.numbering_id), IndentLevel::new(0));
 
         self = self.add_paragraph(title_paragraph);
         let len = section.questions.len();
+
+        let mut lines = 0;
+        if "简答题".eq(&section.title) && is_question {
+            lines = 12;
+        }
+
         section
             .questions
             .iter()
             .enumerate()
             .fold(self, |docx, (i, question)| {
-                let last = i + 1 == len;
-                docx.add_paragraph(question.paragraph(last))
+                if i + 1 == len {
+                    lines = 1;
+                }
+                docx.add_paragraph(question.paragraph(lines, section.numbering_id))
             })
+    }
+
+    fn add_exam_no(self, exam_no: u64) -> Self {
+        self.add_paragraph(
+            Paragraph::new()
+                .add_run(Run::new().add_text("No: ").add_text(exam_no.to_string()))
+                .align(AlignmentType::Right),
+        )
+    }
+
+    fn add_custom_numbering(self, numbering_id: usize) -> Self {
+        self.add_abstract_numbering(
+            AbstractNumbering::new(numbering_id)
+                .add_level(
+                    Level::new(
+                        0,
+                        Start::new(1),
+                        NumberFormat::new("chineseCounting"),
+                        LevelText::new("%1、"),
+                        LevelJc::new("left"),
+                    )
+                    .indent(None, None, None, None),
+                )
+                .add_level(
+                    Level::new(
+                        1,
+                        Start::new(1),
+                        NumberFormat::new("decimal"),
+                        LevelText::new("%2."),
+                        LevelJc::new("left"),
+                    )
+                    .indent(
+                        None,
+                        Some(SpecialIndentType::Hanging(300)),
+                        None,
+                        Some(150),
+                    ),
+                ),
+        )
+        .add_numbering(Numbering::new(numbering_id, numbering_id))
     }
 }
 
 #[derive(Clone, Default)]
 pub struct Question {
     pub question: String,
-    pub answer: String,
     pub options: Vec<String>,
 }
 
 impl Question {
-    fn paragraph(&self, last: bool) -> Paragraph {
-        let question = song()
-            .size(24)
-            .add_text(&self.question)
-            .add_break(BreakType::TextWrapping);
+    fn paragraph(&self, lines: usize, numbering_id: usize) -> Paragraph {
+        let len = self.options.len();
+        let mut question = song().size(24).add_text(&self.question);
+        if len > 0 {
+            question = question.add_break(BreakType::TextWrapping)
+        }
 
         let mut p = Paragraph::new().add_run(question);
 
-        let len = self.options.len();
-        let answers = self
+        let mut options = self
             .options
             .iter()
             .enumerate()
             .fold(song().size(21), |run, (i, opt)| {
                 let r = run.add_text(opt);
-                if i + 1 < len || last {
+                if i + 1 < len {
                     r.add_break(BreakType::TextWrapping)
                 } else {
                     r
                 }
             });
 
-        p = p.add_run(answers);
+        options = (0..lines).fold(options, |r, _| r.add_break(BreakType::TextWrapping));
+
+        p = p.add_run(options);
 
         p.size(24)
-            .numbering(NumberingId::new(2), IndentLevel::new(1))
+            .numbering(NumberingId::new(numbering_id), IndentLevel::new(1))
     }
 }
 

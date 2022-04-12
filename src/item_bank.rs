@@ -1,13 +1,12 @@
-use calamine::{open_workbook, Reader, Xlsx};
-use docx_rs::{
-    AbstractNumbering, Docx, Level, LevelJc, LevelText, NumberFormat, Numbering, SpecialIndentType,
-    Start,
-};
 use std::iter::repeat;
+use std::time::SystemTime;
+
+use calamine::{open_workbook, Reader, Xlsx};
+use docx_rs::{BreakType, Docx, Paragraph, Run};
 
 use crate::error::Error;
 use crate::error::Error::SaveFail;
-use crate::section::{AddSection, Question, Section};
+use crate::section::{DocxExt, Question, Section};
 
 pub struct Builder(String);
 
@@ -17,8 +16,13 @@ impl Builder {
     }
 
     pub fn build(&self, out_path: &str) -> Result<(), Error> {
+        let exam_no = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         let mut workbook: Xlsx<_> = open_workbook(&*self.0)?;
-        let mut docx = Docx::new();
+        let mut docx = Docx::new().add_exam_no(exam_no);
+        let mut answers = Vec::new();
 
         for (title_count, range) in workbook.worksheets() {
             let mut split = title_count.split('|');
@@ -28,10 +32,13 @@ impl Builder {
             let rows = range.rows();
             let rands = rand_usize(rows.len(), need);
 
-            let mut section = Section {
+            let mut question_section = Section {
                 title: title.to_string(),
-                questions: repeat(Question::default()).take(need).collect(),
+                questions: repeat(Question::default()).take(rands.len()).collect(),
+                numbering_id: 2,
             };
+            let mut answer_section = question_section.clone();
+            answer_section.numbering_id = 3;
 
             for (i, row) in rows.enumerate() {
                 let mut idx = need;
@@ -46,11 +53,12 @@ impl Builder {
 
                 if idx != need {
                     let mut question = Question::default();
+                    let mut answer = Question::default();
                     if let Some(v) = row.get(0) {
                         question.question = v.to_string()
                     }
                     if let Some(v) = row.get(1) {
-                        question.answer = v.to_string()
+                        answer.question = v.to_string()
                     }
 
                     if row.len() > 2 {
@@ -58,48 +66,36 @@ impl Builder {
                             question.options.push(cell.to_string());
                         }
                     }
-                    section.questions.insert(idx, question);
+
+                    if let Some(v) = question_section.questions.get_mut(idx) {
+                        *v = question;
+                    }
+                    if let Some(v) = answer_section.questions.get_mut(idx) {
+                        *v = answer;
+                    }
                 }
             }
 
-            docx = docx.add_section(&section);
+            docx = docx.add_question(&question_section);
+            answers.push(answer_section);
         }
 
         let path = std::path::Path::new(out_path);
         let file = std::fs::File::create(&path).unwrap();
 
-        docx.add_abstract_numbering(
-            AbstractNumbering::new(2)
-                .add_level(
-                    Level::new(
-                        0,
-                        Start::new(1),
-                        NumberFormat::new("chineseCounting"),
-                        LevelText::new("%1、"),
-                        LevelJc::new("left"),
-                    )
-                    .indent(None, None, None, None),
-                )
-                .add_level(
-                    Level::new(
-                        1,
-                        Start::new(1),
-                        NumberFormat::new("decimal"),
-                        LevelText::new("%2."),
-                        LevelJc::new("left"),
-                    )
-                    .indent(
-                        None,
-                        Some(SpecialIndentType::Hanging(300)),
-                        None,
-                        Some(150),
-                    ),
-                ),
-        )
-        .add_numbering(Numbering::new(2, 2))
-        .build()
-        .pack(file)
-        .map_err(|e| SaveFail(e.to_string()))?;
+        docx = docx
+            .add_paragraph(Paragraph::new().add_run(Run::new().add_break(BreakType::Page)))
+            .add_exam_no(exam_no);
+
+        docx = answers
+            .iter()
+            .fold(docx, |docx, answer| docx.add_answer(answer));
+
+        docx.add_custom_numbering(2)
+            .add_custom_numbering(3)
+            .build()
+            .pack(file)
+            .map_err(|e| SaveFail(e.to_string()))?;
 
         Ok(())
     }
