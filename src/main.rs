@@ -1,17 +1,7 @@
-use docx_rs::*;
+use exam_builder::item_bank;
 
 fn main() {
-    if let Err(e) = hello() {
+    if let Err(e) = item_bank::Builder::new("test.xlsx").build() {
         eprintln!("{:?}", e);
     }
-}
-
-pub fn hello() -> Result<(), DocxError> {
-    let path = std::path::Path::new("./hello.docx");
-    let file = std::fs::File::create(&path).unwrap();
-    Docx::new()
-        .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Hello")))
-        .build()
-        .pack(file)?;
-    Ok(())
 }

@@ -1,3 +1,4 @@
+use crate::error::Error;
 use docx_rs::{
     AbstractNumbering, AlignmentType, BreakType, Docx, IndentLevel, Level, LevelJc, LevelText,
     NumberFormat, Numbering, NumberingId, Paragraph, Run, RunFonts, SpecialIndentType, Start,
@@ -10,12 +11,55 @@ pub struct Section {
     pub numbering_id: usize,
 }
 
+#[derive(Clone, Default)]
+pub struct Question {
+    pub question: String,
+    pub options: Vec<String>,
+}
+
+impl Question {
+    fn paragraph(&self, lines: usize, numbering_id: usize) -> Paragraph {
+        let len = self.options.len();
+        let mut question = song().size(24).add_text(&self.question);
+        if len > 0 {
+            question = question.add_break(BreakType::TextWrapping)
+        }
+
+        let mut p = Paragraph::new().add_run(question);
+
+        let mut options = self
+            .options
+            .iter()
+            .enumerate()
+            .fold(song().size(21), |run, (i, opt)| {
+                let r = run.add_text(opt);
+                if i + 1 < len {
+                    r.add_break(BreakType::TextWrapping)
+                } else {
+                    r
+                }
+            });
+
+        options = (0..lines).fold(options, |r, _| r.add_break(BreakType::TextWrapping));
+
+        p = p.add_run(options);
+
+        p.size(24)
+            .numbering(NumberingId::new(numbering_id), IndentLevel::new(1))
+    }
+}
+
+fn song() -> Run {
+    Run::new().fonts(RunFonts::new().east_asia("宋体"))
+}
+
 pub trait DocxExt {
     fn add_question(self, section: &Section) -> Self;
     fn add_answer(self, section: &Section) -> Self;
     fn add_section(self, section: &Section, is_question: bool) -> Self;
     fn add_exam_no(self, exam_no: u64) -> Self;
     fn add_custom_numbering(self, numbering_id: usize) -> Self;
+    fn save(self, path: &str) -> Result<(), Error>;
 }
 
 impl DocxExt for Docx {
@@ -94,46 +138,13 @@ impl DocxExt for Docx {
         )
         .add_numbering(Numbering::new(numbering_id, numbering_id))
     }
-}
 
-#[derive(Clone, Default)]
-pub struct Question {
-    pub question: String,
-    pub options: Vec<String>,
-}
-
-impl Question {
-    fn paragraph(&self, lines: usize, numbering_id: usize) -> Paragraph {
-        let len = self.options.len();
-        let mut question = song().size(24).add_text(&self.question);
-        if len > 0 {
-            question = question.add_break(BreakType::TextWrapping)
-        }
-
-        let mut p = Paragraph::new().add_run(question);
-
-        let mut options = self
-            .options
-            .iter()
-            .enumerate()
-            .fold(song().size(21), |run, (i, opt)| {
-                let r = run.add_text(opt);
-                if i + 1 < len {
-                    r.add_break(BreakType::TextWrapping)
-                } else {
-                    r
-                }
-            });
-
-        options = (0..lines).fold(options, |r, _| r.add_break(BreakType::TextWrapping));
-
-        p = p.add_run(options);
-
-        p.size(24)
-            .numbering(NumberingId::new(numbering_id), IndentLevel::new(1))
+    fn save(self, path: &str) -> Result<(), Error> {
+        let path = std::path::Path::new(path);
+        let file = std::fs::File::create(&path).unwrap();
+        self.add_custom_numbering(2)
+            .build()
+            .pack(file)
+            .map_err(|e| Error::SaveFail(e.to_string()))
     }
-}
-
-fn song() -> Run {
-    Run::new().fonts(RunFonts::new().east_asia("宋体"))
 }
