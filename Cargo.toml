@@ -10,3 +10,6 @@ docx-rs = "*"
 calamine = "*"
 thiserror = "*"
 fastrand = "*"
+rfd = "*"
+serde = "1"
+eframe = { version = "*", features = ["persistence"] }

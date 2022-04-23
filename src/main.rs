@@ -1,7 +1,8 @@
-use exam_builder::item_bank;
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// hide console window on Windows in release
+
+use exam_builder::app::App;
 
 fn main() {
-    if let Err(e) = item_bank::Builder::new("test.xlsx").build() {
-        eprintln!("{:?}", e);
-    }
+    eframe::run_native(Box::new(App::new()), eframe::NativeOptions::default());
 }
