@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::iter::repeat;
 use std::time::SystemTime;
 
@@ -39,37 +40,23 @@ impl Builder {
             let mut answer_section = question_section.clone();
 
             for (i, row) in rows.enumerate() {
-                let mut idx = need;
-                rands.iter().enumerate().any(|(index, v)| {
-                    if *v == i {
-                        idx = index;
-                        true
-                    } else {
-                        false
-                    }
-                });
+                if let Some(&idx) = rands.get(&i) {
+                    if let Some(question) = question_section.questions.get_mut(idx) {
+                        if let Some(v) = row.get(0) {
+                            question.subject = v.to_string()
+                        }
 
-                if idx != need {
-                    let mut question = Question::default();
-                    let mut answer = Question::default();
-                    if let Some(v) = row.get(0) {
-                        question.question = v.to_string()
-                    }
-                    if let Some(v) = row.get(1) {
-                        answer.question = v.to_string()
-                    }
-
-                    if row.len() > 2 {
-                        for cell in &row[2..] {
-                            question.options.push(cell.to_string());
+                        if row.len() > 2 {
+                            for cell in &row[2..] {
+                                question.options.push(cell.to_string());
+                            }
                         }
                     }
 
-                    if let Some(v) = question_section.questions.get_mut(idx) {
-                        *v = question;
-                    }
-                    if let Some(v) = answer_section.questions.get_mut(idx) {
-                        *v = answer;
+                    if let Some(answer) = answer_section.questions.get_mut(idx) {
+                        if let Some(v) = row.get(1) {
+                            answer.subject = v.to_string()
+                        }
                     }
                 }
             }
@@ -91,18 +78,19 @@ impl Builder {
     }
 }
 
-fn rand_usize(total: usize, need: usize) -> Vec<usize> {
+fn rand_usize(total: usize, need: usize) -> HashMap<usize, usize> {
     let mut pool = (0..total).collect::<Vec<_>>();
 
+    let mut need = need;
     if total <= need {
-        return pool;
+        need = total;
     }
 
     let rng = fastrand::Rng::new();
-    let mut res = Vec::new();
-    for _ in 0..need {
+    let mut res = HashMap::new();
+    for i in 0..need {
         let index = rng.usize(..pool.len());
-        res.push(pool.remove(index));
+        res.insert(pool.remove(index), i);
     }
     res
 }
@@ -115,7 +103,7 @@ mod tests {
         let need = 5;
         let rands = super::rand_usize(total, need);
         assert_eq!(rands.len(), need);
-        assert!(rands.iter().all(|v| *v < total));
+        assert!(rands.iter().all(|v| *v.0 < total));
         println!("{:?}", rands);
     }
 }
