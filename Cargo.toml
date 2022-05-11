@@ -11,5 +11,5 @@ calamine = "*"
 thiserror = "*"
 fastrand = "*"
 rfd = "*"
-serde = "1"
+serde = "*"
 eframe = { version = "*", features = ["persistence"] }

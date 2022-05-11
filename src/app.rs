@@ -1,18 +1,23 @@
 use crate::item_bank;
 use eframe::{
-    egui::{self, Color32, Context, RichText, Ui},
-    epi::{self, file_storage::FileStorage, Frame, Storage},
+    egui::{self, Color32, RichText, Ui},
+    Frame, Storage, APP_KEY,
 };
 use serde::{Deserialize, Serialize};
 
-const APP_NAME: &str = "试卷生成器";
+pub const APP_NAME: &str = "试卷生成器";
+
+#[derive(Default)]
+pub struct App {
+    state: State,
+}
 
 #[derive(Serialize, Deserialize)]
-pub struct App {
+struct State {
     picked_path: Vec<(String, String)>,
 }
 
-impl Default for App {
+impl Default for State {
     fn default() -> Self {
         Self {
             picked_path: vec![
@@ -24,15 +29,15 @@ impl Default for App {
     }
 }
 
-impl epi::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::Grid::new("grid")
                 // .num_columns(4)
                 // .spacing([40.0, 4.0])
                 .striped(true)
                 .show(ui, |ui| {
-                    self.picked_path.iter_mut().for_each(|(label, path)| {
+                    self.state.picked_path.iter_mut().for_each(|(label, path)| {
                         Self::add_line(ui, label, path);
                     })
                 });
@@ -42,25 +47,22 @@ impl epi::App for App {
         });
     }
 
-    fn setup(&mut self, ctx: &Context, _frame: &Frame, _storage: Option<&dyn Storage>) {
-        ctx.set_visuals(egui::Visuals::dark());
-        // ctx.set_debug_on_hover(true);
-    }
-
     fn save(&mut self, storage: &mut dyn Storage) {
-        epi::set_value(storage, epi::APP_KEY, self);
-    }
-
-    fn name(&self) -> &str {
-        APP_NAME
+        eframe::set_value(storage, APP_KEY, &self.state);
     }
 }
 
 impl App {
-    pub fn new() -> Self {
-        FileStorage::from_app_name(APP_NAME)
-            .and_then(|storage| epi::get_value(&storage, epi::APP_KEY))
-            .unwrap_or_default()
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        cc.egui_ctx.set_visuals(egui::Visuals::dark());
+        // cc.egui_ctx.set_debug_on_hover(true);
+
+        let mut slf = Self::default();
+        if let Some(storage) = cc.storage {
+            slf.state = eframe::get_value(storage, APP_KEY).unwrap_or_default();
+        }
+
+        slf
     }
 
     fn add_line(ui: &mut Ui, label: &str, path: &mut String) {
