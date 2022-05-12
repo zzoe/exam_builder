@@ -21,14 +21,6 @@ impl Default for ExamBuilder {
 }
 
 impl ExamBuilder {
-    pub fn new(picked_path: Vec<(String, String)>) -> Self {
-        if picked_path.is_empty() {
-            Self::default()
-        } else {
-            Self { picked_path }
-        }
-    }
-
     pub fn view(&mut self, ctx: &egui::Context) {
         // println!("{:?}", self.picked_path);
         egui::CentralPanel::default().show(ctx, |ui| {
