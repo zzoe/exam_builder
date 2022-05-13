@@ -12,9 +12,9 @@ impl Default for ExamBuilder {
     fn default() -> Self {
         Self {
             picked_path: vec![
-                ("Junior".to_string(), String::new()),
-                ("Senior".to_string(), String::new()),
-                ("Master".to_string(), String::new()),
+                ("初级".to_string(), String::new()),
+                ("中级".to_string(), String::new()),
+                ("高级".to_string(), String::new()),
             ],
         }
     }
