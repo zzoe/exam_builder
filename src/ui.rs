@@ -21,22 +21,16 @@ impl Default for ExamBuilder {
 }
 
 impl ExamBuilder {
-    pub fn view(&mut self, ctx: &egui::Context) {
-        // println!("{:?}", self.picked_path);
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::Grid::new("grid")
-                // .num_columns(4)
-                // .spacing([40.0, 4.0])
-                .striped(true)
-                .show(ui, |ui| {
-                    self.picked_path.iter_mut().for_each(|(label, path)| {
-                        Self::add_line(ui, label, path);
-                    })
-                });
-        });
-        egui::TopBottomPanel::bottom("bottom").show(ctx, |ui| {
-            egui::widgets::global_dark_light_mode_switch(ui);
-        });
+    pub fn view(&mut self, ui: &mut Ui) {
+        egui::Grid::new("grid")
+            // .num_columns(4)
+            // .spacing([40.0, 4.0])
+            .striped(true)
+            .show(ui, |ui| {
+                self.picked_path.iter_mut().for_each(|(label, path)| {
+                    Self::add_line(ui, label, path);
+                })
+            });
     }
 
     fn add_line(ui: &mut Ui, label: &str, path: &mut String) {
